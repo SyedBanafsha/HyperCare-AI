@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+Prescription_*.pdf
+Bill_*.pdf
+hospital.db
