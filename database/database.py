@@ -539,6 +539,7 @@ def generate_bill_pdf(
     return filename
 
 
+
 def add_ai_prediction(
     patient_id,
     predicted_disease,
@@ -547,34 +548,58 @@ def add_ai_prediction(
     recommendation,
     prediction_date
 ):
-
     connection = sqlite3.connect("hospital.db")
     cursor = connection.cursor()
 
-    cursor.execute("""
-    INSERT INTO ai_predictions
-    (
-        patient_id,
-        predicted_disease,
-        confidence,
-        risk_level,
-        recommendation,
-        prediction_date
-    )
+    try:
+        # Check whether this exact prediction is already saved
+        cursor.execute("""
+            SELECT prediction_id
+            FROM ai_predictions
+            WHERE patient_id = ?
+              AND predicted_disease = ?
+              AND confidence = ?
+              AND risk_level = ?
+              AND recommendation = ?
+              AND prediction_date = ?
+            LIMIT 1
+        """, (
+            patient_id,
+            predicted_disease,
+            confidence,
+            risk_level,
+            recommendation,
+            prediction_date
+        ))
 
-    VALUES (?, ?, ?, ?, ?, ?)
-    """,
-    (
-        patient_id,
-        predicted_disease,
-        confidence,
-        risk_level,
-        recommendation,
-        prediction_date
-    ))
+        if cursor.fetchone():
+            return False
 
-    connection.commit()
-    connection.close()
+        cursor.execute("""
+            INSERT INTO ai_predictions (
+                patient_id,
+                predicted_disease,
+                confidence,
+                risk_level,
+                recommendation,
+                prediction_date
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            patient_id,
+            predicted_disease,
+            confidence,
+            risk_level,
+            recommendation,
+            prediction_date
+        ))
+
+        connection.commit()
+        return True
+
+    finally:
+        connection.close()
+
 
 def get_latest_lab_report(patient_id):
 
