@@ -1,297 +1,184 @@
-# 🏥 HyperCare AI
+# 🏥 HyperCare AI — AI-Assisted Healthcare Workflow System
 
-## AI-Assisted Healthcare Workflow System
+HyperCare AI is a web-based healthcare workflow management prototype built using Python, Streamlit, SQLite, and Machine Learning. It aims to simplify hospital operations by bringing patient registration, appointments, laboratory records, AI-assisted screening, doctor consultations, prescriptions, and billing into one application.
 
-**HyperCare AI** is an AI-assisted healthcare workflow system developed using **Python, Streamlit, and SQLite**. It manages the hospital workflow from patient registration and doctor consultation to laboratory investigations, AI-assisted health screening, prescription generation, and email delivery.
+**Live Demo:** https://hypercare-ai-banafsha.streamlit.app/
 
-The system is designed to **support doctors with AI-based screening insights** while keeping the final clinical decision with the healthcare professional.
+**GitHub Repository:** https://github.com/SyedBanafsha/HyperCare-AI
 
----
+## ✨ Features
 
-## 🚀 Features
+### 🔐 Role-Based Login and Access
+The application includes login and role-based page access for four staff roles:
 
-* 👤 Patient Registration
-* 🔍 Patient Search
-* 📅 Appointment Management
-* 👨‍⚕️ Doctor Consultation Dashboard
-* 🧪 Laboratory Test Management
-* 🤖 AI-Assisted Disease Screening
-* 📊 AI Risk/Prediction Results
-* 💊 Prescription Management
-* 📄 Automatic Prescription PDF Generation
-* 📧 Email Prescription Delivery
-* 💳 Billing Management
-* 📋 Admin Dashboard
+- **Admin:** Hospital management dashboard and authorized administrative information.
+- **Reception:** Patient registration, patient search, appointments, billing, and billing history.
+- **Doctor:** Patient information, consultations, laboratory reports, AI screening results, and prescription generation.
+- **Lab Technician:** Laboratory records and AI-assisted screening workflow.
 
----
+The navigation menu displays pages according to the logged-in role.
 
-## 🧠 AI-Assisted Screening
+### 🧑‍⚕️ Patient Management
+- Patient registration with input validation.
+- Duplicate phone number and email checks.
+- Patient search using the available patient records.
+- Storage of patient details in an SQLite database.
 
-HyperCare AI currently provides screening support for three health conditions:
+### 🧪 Laboratory and AI-Assisted Screening
+The prototype includes machine-learning components for screening support related to:
 
-* **Diabetes**
-* **Hypertension**
-* **Anemia**
+- Diabetes
+- Hypertension
+- Anemia
 
-The AI models are trained using publicly available healthcare datasets.
+Predictions depend on the available input measurements and the implemented screening workflow.
 
-### Dataset Sources
+### 🩺 Doctor Consultation and Prescriptions
+- Doctor consultation records.
+- Diagnosis and prescription entry.
+- Doctor notes.
+- Electronic prescription PDF generation.
+- Prescription email functionality, where configured.
 
-| Condition    | Dataset                            | Target                 |
-| ------------ | ---------------------------------- | ---------------------- |
-| Diabetes     | Framingham Heart Study Dataset     | Diabetes               |
-| Hypertension | Framingham Heart Study Dataset     | Prevalent Hypertension |
-| Anemia       | UCI Chronic Kidney Disease Dataset | Anemia                 |
+### 💳 Appointments and Billing
+- Appointment management.
+- Billing records and billing history.
+- Administrative revenue information.
 
-### Health Parameters Used
+### 📊 Admin Dashboard
+- Patient and appointment statistics.
+- Laboratory and doctor-record counts.
+- AI prediction statistics.
+- Revenue information and dashboard visualizations.
 
-The application works with the following health parameters where applicable:
+## 🛠️ Technology Stack
 
-* Age
-* Gender
-* Blood Glucose
-* Blood Pressure
-* Hemoglobin
-* Cholesterol
-* Heart Rate
+- **Language:** Python
+- **Frontend:** Streamlit
+- **Database:** SQLite
+- **Machine Learning:** scikit-learn
+- **Data Processing:** pandas
+- **PDF Generation:** ReportLab
+- **Development Environment:** Visual Studio Code
+- **Deployment:** Streamlit Community Cloud
+- **Version Control:** Git and GitHub
 
-The AI models are triggered only when the required laboratory investigations have been completed.
-
----
-
-## 🔄 System Workflow
-
-```text
-Patient Registration
-        ↓
-Doctor Consultation
-        ↓
-Doctor Requests Laboratory Tests
-        ↓
-Laboratory Investigation
-        ↓
-Health Parameters / Lab Report
-        ↓
-AI-Assisted Screening
-        ↓
-Doctor Reviews AI Results
-        ↓
-Final Clinical Decision
-        ↓
-Prescription PDF
-        ↓
-Email Prescription
-        ↓
-Billing / Administration
-```
-
-### Laboratory and AI Workflow
-
-The AI screening depends on the tests requested by the doctor.
-
-* **Blood Test + ECG** → Anemia screening
-* **Blood Test + ECG + Cholesterol Test** → Diabetes and Hypertension screening
-* If the required tests are not available, the corresponding AI model is not executed.
-
-This prevents the system from using default or unavailable values as if they were actual patient measurements.
-
----
-
-## 📈 Model Performance
-
-The models were evaluated using accuracy, precision, recall, F1-score, and ROC-AUC.
-
-| Model        | Accuracy | Precision | Recall | F1-Score | ROC-AUC |
-| ------------ | -------: | --------: | -----: | -------: | ------: |
-| Anemia       |    80.0% |     42.3% |  91.7% |    57.9% |   93.3% |
-| Diabetes     |    92.2% |     22.5% |  81.8% |    35.3% |   90.1% |
-| Hypertension |    87.5% |     74.6% |  90.5% |    81.8% |   94.9% |
-
-> **Note:** These results are based on the project's experimental dataset evaluation and should not be interpreted as clinical validation.
-
----
-
-## 🛠️ Technologies Used
-
-* **Python**
-* **Streamlit**
-* **SQLite**
-* **Pandas**
-* **NumPy**
-* **Scikit-learn**
-* **Joblib**
-* **ReportLab**
-* **SMTP**
-* **python-dotenv**
-* **Pillow**
-
----
-
-## 📂 Project Structure
+## 📁 Project Structure
 
 ```text
 HyperCare-AI/
-│
-├── Home.py
-├── login.py
-├── hospital.db
-├── requirements.txt
-├── README.md
-│
 ├── assets/
 ├── database/
+│   └── database.py
 ├── datasets/
-│   ├── framingham.csv
-│   ├── chronic_kidney_disease.csv
-│   ├── chronic_kidney_disease.arff
-│   └── chronic_kidney_disease_clean.arff
-│
+├── docs/
 ├── models/
-│   ├── diabetes_model.pkl
-│   ├── hypertension_model.pkl
-│   └── anemia_model.pkl
-│
 ├── pages/
+│   ├── Admin_Dashboard.py
+│   ├── Appointment.py
+│   ├── Billing.py
+│   ├── Billing_History.py
+│   ├── Doctor_Dashboard.py
+│   ├── Lab_Technician.py
+│   ├── Patient_Registration.py
+│   └── Search_Patient.py
+├── sample_outputs/
+├── screenshots/
 ├── Training/
 ├── utils/
-├── screenshots/
-├── sample_outputs/
-└── docs/
+│   ├── auth.py
+│   └── pdf_generator.py
+├── .env.example
+├── .gitignore
+├── Home.py
+├── login.py
+├── requirements.txt
+└── README.md
 ```
 
----
+*Note: The listed structure describes the intended project layout; filenames may vary as development continues.*
 
-## 📁 Main Components
+## 🚀 Run Locally
 
-### `Home.py`
+### 1. Clone the repository
 
-Handles patient registration.
+```bash
+git clone https://github.com/SyedBanafsha/HyperCare-AI.git
+cd HyperCare-AI
+```
 
-### `pages/`
+### 2. Create and activate a virtual environment (recommended)
 
-Contains the Streamlit application pages for the different hospital workflow modules.
+```bash
+python -m venv venv
+```
 
-### `database/`
+On Windows:
 
-Contains the SQLite database operations and patient, doctor, laboratory, billing, and AI prediction functions.
+```bash
+venv\Scripts\activate
+```
 
-### `Training/`
-
-Contains the training scripts used to train the three disease-screening models.
-
-### `models/`
-
-Stores the trained machine-learning models.
-
-### `utils/`
-
-Contains supporting functionality such as:
-
-* AI prediction
-* Prescription PDF generation
-* Email delivery
-
-### `datasets/`
-
-Contains the datasets used for model development and training.
-
-### `screenshots/`
-
-Contains screenshots demonstrating the major application workflows.
-
-### `sample_outputs/`
-
-Contains example outputs generated by the system.
-
----
-
-## ⚙️ Installation
-
-### 1. Clone or download the project
-
-Open the project folder in a terminal.
-
-### 2. Install dependencies
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configure email settings
-
-Create a `.env` file in the project root.
-
-```text
-EMAIL_ADDRESS=your_email@gmail.com
-EMAIL_PASSWORD=your_16_character_app_password
-```
-
-The `.env` file contains private credentials and should **not** be uploaded to GitHub.
-
-A `.env.example` file is included as a template.
-
-### 4. Run the application
+### 4. Start the application
 
 ```bash
-streamlit run Home.py
+python -m streamlit run Home.py
 ```
 
-The application will open in the browser.
+The application will display a local URL in the terminal. Open that URL in your browser.
 
----
+## 🔑 Demo Login Accounts
 
-## 📸 Screenshots
+The current prototype uses demo accounts configured in `login.py`:
 
-The `screenshots/` folder contains demonstrations of the major project workflows, including:
+| Role | Username | Password |
+|---|---|---|
+| Admin | `admin` | `admin123` |
+| Doctor | `doctor` | `doctor123` |
+| Lab Technician | `lab` | `lab123` |
+| Reception | `reception` | `reception123` |
 
-* Patient Registration
-* Doctor Dashboard
-* Laboratory Investigation
-* AI-Assisted Screening
-* AI Results Reviewed by Doctor
-* Doctor Consultation
-* Prescription PDF
-* Email Prescription
-* Billing / Administration
+**Security warning:** These are demonstration credentials, not secure production credentials. Do not use them for real patient information. Replace hardcoded passwords with securely stored password hashes and implement appropriate staff account management before production use.
 
----
+## 🧠 AI Safety and Limitations
 
-## ⚠️ Important Disclaimer
+HyperCare AI is an academic prototype for healthcare workflow automation and AI-assisted screening. Its predictions are not medical diagnoses and must not independently determine treatment.
 
-HyperCare AI is an **academic AI-assisted healthcare workflow prototype**.
+- Screening results depend on the input data and model limitations.
+- The diabetes model has shown low precision in testing, so its accuracy alone should not be treated as evidence of clinical reliability.
+- Healthcare professionals must assess results and make final clinical decisions.
+- The models have not been established as clinically validated tools.
 
-The machine-learning models are intended to demonstrate AI-assisted screening and decision support. They are **not medical diagnostic tools** and have not been clinically validated.
+## 🔒 Data and Deployment Limitations
 
-AI-generated results should not replace professional medical judgment.
+The current prototype uses SQLite and demonstration authentication. Depending on the deployment environment, local database files may not provide durable, shared storage across restarts or instances.
 
-**The final diagnosis, treatment, and clinical decision remain the responsibility of the qualified healthcare professional.**
+Before real-world use, the system requires persistent shared database infrastructure, secure authentication, appropriate authorization at the data-access level, audit logging, backup and recovery, and privacy and security review.
 
----
+## 🔮 Future Improvements
 
-## 🔮 Future Enhancements
+- Admin-managed staff accounts and password resets.
+- Secure password hashing and session management.
+- Role-specific navigation and finer-grained permissions.
+- Persistent shared database deployment.
+- Audit logs and stronger patient-data protection.
+- Improved model evaluation and clinical validation.
+- Automated testing and expanded documentation.
 
-* 🔐 Improved Role-Based Access Control
-* 🧠 NLP-Based Clinical Notes Analysis
-* 🎤 Voice-Based Prescription Entry
-* ☁️ Cloud Database Integration
-* 📱 SMS and Appointment Notifications
-* 🌐 Patient Portal
-* 📈 Advanced Healthcare Analytics
-* 🏥 Integration with real-world healthcare systems
-
----
-
-## 👨‍💻 Developer
+## 👩‍💻 Developer
 
 **Syed Banafsha**
 
-Centre for Artificial Intelligence (CAI)
-Islamic University of Science and Technology (IUST)
+Bachelor of Science in Artificial Intelligence
 
-Bachelor's Degree in Artificial Intelligence *(In Progress)*
+Islamic University of Science and Technology (IUST), Kashmir
 
 ---
 
-## 📜 License
-
-This project has been developed for **academic and educational purposes only**.
+*HyperCare AI is developed as an academic project exploring healthcare workflow automation and AI-assisted screening.*
