@@ -915,3 +915,178 @@ def get_latest_doctor_record(patient_id):
     connection.close()
 
     return record
+
+def get_appointments():
+    connection = sqlite3.connect("hospital.db")
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT appointment_id, patient_id, doctor_name,
+               appointment_date, appointment_time, status
+        FROM appointments
+        ORDER BY appointment_date, appointment_time
+    """)
+
+    appointments = cursor.fetchall()
+    connection.close()
+
+    return appointments
+
+def update_appointment_status(appointment_id, status):
+    if status not in ("Confirmed", "Rejected"):
+        raise ValueError("Invalid appointment status")
+
+    connection = sqlite3.connect("hospital.db")
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "UPDATE appointments SET status = ? WHERE appointment_id = ?",
+        (status, appointment_id)
+    )
+
+    connection.commit()
+    connection.close()
+
+
+def create_public_appointments_table():
+    connection = sqlite3.connect("hospital.db", timeout=10)
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS public_appointment_requests (
+                request_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                patient_name TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                email TEXT,
+                doctor_name TEXT NOT NULL,
+                appointment_date TEXT NOT NULL,
+                appointment_time TEXT NOT NULL,
+                reason TEXT,
+                status TEXT NOT NULL DEFAULT 'Pending'
+            )
+        """)
+
+        cursor.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS unique_active_public_appointment
+            ON public_appointment_requests (
+                phone,
+                doctor_name,
+                appointment_date,
+                appointment_time
+            )
+            WHERE status IN ('Pending', 'Confirmed')
+        """)
+
+        connection.commit()
+
+    finally:
+        connection.close()
+
+
+
+
+def add_public_appointment(
+    patient_name,
+    phone,
+    email,
+    doctor_name,
+    appointment_date,
+    appointment_time,
+    reason
+):
+    connection = sqlite3.connect("hospital.db", timeout=10)
+    connection.execute("PRAGMA busy_timeout = 10000")
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("BEGIN IMMEDIATE")
+        # Prevent duplicate active requests for the same slot
+        cursor.execute("""
+            SELECT request_id
+            FROM public_appointment_requests
+            WHERE phone = ?
+              AND doctor_name = ?
+              AND appointment_date = ?
+              AND appointment_time = ?
+              AND status IN ('Pending', 'Confirmed')
+            LIMIT 1
+        """, (
+            phone,
+            doctor_name,
+            appointment_date,
+            appointment_time
+        ))
+
+        existing = cursor.fetchone()
+
+        if existing:
+            raise ValueError(
+                f"You already have an active request for this slot. "
+                f"Reference number: {existing[0]}"
+            )
+
+        cursor.execute("""
+            INSERT INTO public_appointment_requests
+            (patient_name, phone, email, doctor_name,
+             appointment_date, appointment_time, reason, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')
+        """, (
+            patient_name,
+            phone,
+            email,
+            doctor_name,
+            appointment_date,
+            appointment_time,
+            reason
+        ))
+
+        request_id = cursor.lastrowid
+        connection.commit()
+        return request_id
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        connection.close()
+
+
+
+create_public_appointments_table()
+
+def get_public_appointment_requests():
+    connection = sqlite3.connect("hospital.db")
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT request_id, patient_name, phone, email,
+               doctor_name, appointment_date, appointment_time,
+               reason, status
+        FROM public_appointment_requests
+        ORDER BY request_id DESC
+    """)
+
+    requests = cursor.fetchall()
+    connection.close()
+
+    return requests
+
+
+def update_public_appointment_status(request_id, status):
+    if status not in ("Confirmed", "Rejected"):
+        raise ValueError("Invalid appointment status")
+
+    connection = sqlite3.connect("hospital.db")
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        UPDATE public_appointment_requests
+        SET status = ?
+        WHERE request_id = ?
+    """, (status, request_id))
+
+    connection.commit()
+    connection.close()
