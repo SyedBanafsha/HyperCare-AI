@@ -25,6 +25,22 @@ CREATE TABLE IF NOT EXISTS doctor_records (
     visit_date TEXT
 )
 """)
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS patients (
+    patient_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_name TEXT NOT NULL,
+    phone_number TEXT NOT NULL,
+    email TEXT NOT NULL,
+    age INTEGER,
+    gender TEXT,
+    residence TEXT,
+    purpose_of_visit TEXT,
+    current_symptoms TEXT
+)
+""")
+connection.commit()
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS appointments (
     appointment_id INTEGER PRIMARY KEY AUTOINCREMENT,
