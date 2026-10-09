@@ -1,4 +1,7 @@
 import streamlit as st
+from utils.auth import require_login
+
+require_login(["Admin", "Reception"])
 from database.database import (
     add_bill,
     search_patient,

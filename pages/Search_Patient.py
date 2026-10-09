@@ -1,4 +1,7 @@
 import streamlit as st
+from utils.auth import require_login
+
+require_login(["Admin", "Reception", "Doctor"])
 from database.database import search_patient
 st.title("🔍 Patient Search")
 st.caption("Search patient records using the unique Patient ID.")

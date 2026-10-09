@@ -1,3 +1,4 @@
+
 import streamlit as st
 
 USERS = {
@@ -21,26 +22,28 @@ USERS = {
 
 
 def login():
-
     st.title("🔐 HyperCare AI Login")
 
-    username = st.text_input("Username")
-
+    username = st.text_input("Username", key="login_username")
     password = st.text_input(
         "Password",
-        type="password"
+        type="password",
+        key="login_password"
     )
 
     if st.button("Login"):
+        user = USERS.get(username.strip().lower())
 
-        if username in USERS and USERS[username]["password"] == password:
-
-            st.session_state.logged_in = True
-            st.session_state.role = USERS[username]["role"]
+        if user and user["password"] == password:
+            st.session_state["logged_in"] = True
+            st.session_state["role"] = user["role"]
+            st.session_state["username"] = username.strip().lower()
 
             st.success("Login Successful!")
-
             st.rerun()
-
         else:
             st.error("Invalid Username or Password")
+
+
+if __name__ == "__main__":
+    login()

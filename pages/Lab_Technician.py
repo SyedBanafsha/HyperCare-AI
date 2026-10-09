@@ -1,4 +1,7 @@
 import streamlit as st
+from utils.auth import require_login
+
+require_login(["Lab Technician"])
 
 from database.database import (
     add_lab_report,

@@ -1,4 +1,10 @@
 import streamlit as st
+import streamlit as st
+from utils.auth import require_login
+
+require_login(["Doctor"])
+
+# Keep all your existing code below
 from utils.pdf_generator import generate_prescription_pdf
 from utils.email_sender import send_prescription_email 
 from database.database import (
@@ -239,18 +245,20 @@ if st.button("📄 Generate Prescription PDF"):
 
         pdf_filename = f"Prescription_{patient_id}.pdf"
 
+        
         generate_prescription_pdf(
-            pdf_filename,
-            patient_id,
-            patient[1],
-            patient[3],
-            patient[4],
-            doctor_name,
-            diagnosis,
-            prescription,
-            doctor_notes,
-            str(visit_date)
+            filename=pdf_filename,
+            patient_id=patient_id,
+            patient_name=patient[1],
+            age=patient[3],
+            gender=patient[4],
+            doctor_name=doctor_name,
+            diagnosis=diagnosis,
+            prescription=prescription,
+            doctor_notes=doctor_notes,
+            visit_date=str(visit_date)
         )
+
 
         with open(pdf_filename, "rb") as pdf_file:
 

@@ -1,4 +1,8 @@
 import streamlit as st
+import streamlit as st
+from utils.auth import require_login
+
+require_login(["Admin"])
 import pandas as pd
 from database.database import (
     get_total_patients,
