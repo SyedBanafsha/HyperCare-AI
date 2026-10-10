@@ -17,7 +17,12 @@ USERS = {
     "reception": {
         "password": "reception123",
         "role": "Reception"
+    },
+    "patient": {
+        "password": "patient123",
+        "role": "Patient"
     }
+
 }
 
 

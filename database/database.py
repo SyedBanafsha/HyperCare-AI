@@ -987,6 +987,7 @@ def create_public_appointments_table():
 
 
 
+
 def add_public_appointment(
     patient_name,
     phone,
@@ -1090,3 +1091,540 @@ def update_public_appointment_status(request_id, status):
 
     connection.commit()
     connection.close()
+
+def confirm_public_request_with_patient(request_id):
+    import sqlite3
+
+    connection = sqlite3.connect("hospital.db", timeout=10)
+
+    try:
+        connection.execute("PRAGMA busy_timeout = 10000")
+        cursor = connection.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
+
+        # 1. Fetch the online request.
+        cursor.execute("""
+            SELECT patient_name, phone, doctor_name,
+                   appointment_date, appointment_time, status
+            FROM public_appointment_requests
+            WHERE request_id = ?
+        """, (request_id,))
+
+        request = cursor.fetchone()
+
+        if request is None:
+            raise ValueError("Appointment request was not found.")
+
+        (
+            patient_name,
+            phone,
+            doctor_name,
+            appointment_date,
+            appointment_time,
+            status,
+        ) = request
+
+        if status == "Confirmed":
+            raise ValueError("This request has already been confirmed.")
+
+        if status != "Pending":
+            raise ValueError("Only pending requests can be confirmed.")
+
+        # 2. Find the registered patient by mobile number.
+        cursor.execute("""
+            SELECT patient_id
+            FROM patients
+            WHERE phone_number = ?
+            ORDER BY patient_id DESC
+            LIMIT 1
+        """, (phone,))
+
+        patient = cursor.fetchone()
+
+        if patient is None:
+            raise ValueError(
+                "Patient not registered. Please register this patient "
+                "using the Patient Registration page first. Then retry "
+                "confirmation. The online Request ID is not a Patient ID."
+            )
+
+        patient_id = patient[0]
+
+        # 3. Check for an existing active appointment at this slot.
+        cursor.execute("""
+            SELECT appointment_id
+            FROM appointments
+            WHERE patient_id = ?
+              AND doctor_name = ?
+              AND appointment_date = ?
+              AND appointment_time = ?
+              AND status IN ('Pending', 'Confirmed')
+            LIMIT 1
+        """, (
+            patient_id,
+            doctor_name,
+            appointment_date,
+            appointment_time,
+        ))
+
+        existing_appointment = cursor.fetchone()
+
+        if existing_appointment:
+            appointment_id = existing_appointment[0]
+        else:
+            # 4. Create the appointment if one doesn't already exist.
+            cursor.execute("""
+                INSERT INTO appointments (
+                    patient_id,
+                    doctor_name,
+                    appointment_date,
+                    appointment_time,
+                    status
+                )
+                VALUES (?, ?, ?, ?, 'Confirmed')
+            """, (
+                patient_id,
+                doctor_name,
+                appointment_date,
+                appointment_time,
+            ))
+
+            appointment_id = cursor.lastrowid
+
+        # 5. Confirm the request in the same transaction.
+        cursor.execute("""
+            UPDATE public_appointment_requests
+            SET status = 'Confirmed'
+            WHERE request_id = ? AND status = 'Pending'
+        """, (request_id,))
+
+        if cursor.rowcount != 1:
+            raise ValueError(
+                "The request status changed. Refresh and try again."
+            )
+
+        connection.commit()
+        return patient_id, appointment_id
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        connection.close()
+
+def get_patient_by_phone(phone):
+    import sqlite3
+
+    connection = sqlite3.connect("hospital.db")
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT patient_id, patient_name, phone_number, email,
+                   age, gender, residence
+            FROM patients
+            WHERE phone_number = ?
+            ORDER BY patient_id DESC
+            LIMIT 1
+        """, (phone.strip(),))
+        return cursor.fetchone()
+    finally:
+        connection.close()
+
+
+def register_and_confirm_public_request(
+    request_id, age=None, gender=None, residence=None
+):
+    import sqlite3
+
+    connection = sqlite3.connect("hospital.db", timeout=10)
+
+    try:
+        connection.execute("PRAGMA busy_timeout = 10000")
+        cursor = connection.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
+
+        cursor.execute("""
+            SELECT patient_name, phone, email, doctor_name,
+                   appointment_date, appointment_time, reason, status
+            FROM public_appointment_requests
+            WHERE request_id = ?
+        """, (request_id,))
+        request = cursor.fetchone()
+
+        if request is None:
+            raise ValueError("Appointment request not found.")
+
+        name, phone, email, doctor, appt_date, appt_time, reason, status = request
+
+        if status == "Confirmed":
+            raise ValueError("This request is already confirmed.")
+        if status != "Pending":
+            raise ValueError("Only pending requests can be confirmed.")
+
+        # Reuse a registered patient with this mobile number.
+        cursor.execute("""
+            SELECT patient_id
+            FROM patients
+            WHERE phone_number = ?
+            ORDER BY patient_id DESC
+            LIMIT 1
+        """, (phone.strip(),))
+        patient = cursor.fetchone()
+
+        if patient:
+            patient_id = patient[0]
+        else:
+            if age is None or age < 0 or not gender or not residence or not residence.strip():
+                raise ValueError(
+                    "Please enter the new patient's age, gender and residence."
+                )
+
+            # Don't silently associate a different patient's email.
+            if email and email.strip():
+                cursor.execute("""
+                    SELECT patient_id FROM patients
+                    WHERE email = ?
+                    LIMIT 1
+                """, (email.strip(),))
+                email_match = cursor.fetchone()
+                if email_match:
+                    raise ValueError(
+                        "This email already belongs to a registered patient. "
+                        "Please check the patient's details before continuing."
+                    )
+
+            cursor.execute("""
+                INSERT INTO patients (
+                    patient_name, phone_number, email, age, gender,
+                    residence, purpose_of_visit, current_symptoms
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                name.strip(),
+                phone.strip(),
+                (email or "").strip(),
+                int(age),
+                gender,
+                residence.strip(),
+                (reason or "Online appointment request").strip(),
+                (reason or "").strip(),
+            ))
+            patient_id = cursor.lastrowid
+
+        # Prevent booking a doctor who already has an active appointment
+        # at the requested date and time.
+        cursor.execute("""
+            SELECT appointment_id
+            FROM appointments
+            WHERE doctor_name = ?
+              AND appointment_date = ?
+              AND appointment_time = ?
+              AND status IN ('Pending', 'Confirmed')
+            LIMIT 1
+        """, (doctor, appt_date, appt_time))
+
+        conflict = cursor.fetchone()
+        if conflict:
+            raise ValueError(
+                "This doctor already has an active appointment at that time. "
+                "Please contact the patient to arrange another slot."
+            )
+
+        cursor.execute("""
+            INSERT INTO appointments (
+                patient_id, doctor_name, appointment_date,
+                appointment_time, status
+            )
+            VALUES (?, ?, ?, ?, 'Confirmed')
+        """, (patient_id, doctor, appt_date, appt_time))
+
+        appointment_id = cursor.lastrowid
+
+        cursor.execute("""
+            UPDATE public_appointment_requests
+            SET status = 'Confirmed'
+            WHERE request_id = ? AND status = 'Pending'
+        """, (request_id,))
+
+        if cursor.rowcount != 1:
+            raise ValueError("Request status changed. Refresh and try again.")
+
+        connection.commit()
+        return patient_id, appointment_id
+
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
+# ============================================================
+# PUBLIC APPOINTMENT WORKFLOW
+# Add this section at the VERY BOTTOM of database/database.py
+# ============================================================
+
+import sqlite3
+
+
+def _get_public_appointment_connection():
+    """Open the existing hospital database and ensure the link column exists."""
+    conn = sqlite3.connect("hospital.db", timeout=10)
+    conn.execute("PRAGMA busy_timeout = 10000")
+
+    # Keep a link from a public request to its hospital appointment.
+    columns = {
+        row[1]
+        for row in conn.execute(
+            "PRAGMA table_info(public_appointment_requests)"
+        ).fetchall()
+    }
+
+    if not columns:
+        conn.close()
+        raise RuntimeError(
+            "The public_appointment_requests table does not exist. "
+            "Run your existing database initialization first."
+        )
+
+    if "appointment_id" not in columns:
+        conn.execute(
+            """
+            ALTER TABLE public_appointment_requests
+            ADD COLUMN appointment_id INTEGER
+            """
+        )
+        conn.commit()
+
+    return conn
+
+
+def check_public_request_availability(request_id):
+    """
+    Return (available, message) for a public appointment request.
+    Does not accept or confirm the request.
+    """
+    conn = _get_public_appointment_connection()
+
+    try:
+        request = conn.execute(
+            """
+            SELECT doctor_name, appointment_date, appointment_time, status
+            FROM public_appointment_requests
+            WHERE request_id = ?
+            """,
+            (request_id,),
+        ).fetchone()
+
+        if not request:
+            return False, "Appointment request not found."
+
+        doctor, date, time, status = request
+
+        if status != "Pending":
+            return False, f"This request is already {status.lower()}."
+
+        # Check existing hospital appointments.
+        existing = conn.execute(
+            """
+            SELECT appointment_id
+            FROM appointments
+            WHERE LOWER(TRIM(doctor_name)) = LOWER(TRIM(?))
+              AND TRIM(appointment_date) = TRIM(?)
+              AND TRIM(appointment_time) = TRIM(?)
+              AND LOWER(TRIM(COALESCE(status, ''))) IN
+                  ('pending', 'confirmed', 'accepted', 'booked')
+            LIMIT 1
+            """,
+            (doctor, date, time),
+        ).fetchone()
+
+        if existing:
+            return False, "This doctor already has an active appointment at that time."
+
+        # Also check other public requests already confirmed.
+        other_request = conn.execute(
+            """
+            SELECT request_id
+            FROM public_appointment_requests
+            WHERE request_id != ?
+              AND LOWER(TRIM(doctor_name)) = LOWER(TRIM(?))
+              AND TRIM(appointment_date) = TRIM(?)
+              AND TRIM(appointment_time) = TRIM(?)
+              AND LOWER(TRIM(COALESCE(status, ''))) = 'confirmed'
+            LIMIT 1
+            """,
+            (request_id, doctor, date, time),
+        ).fetchone()
+
+        if other_request:
+            return False, "This time slot is already reserved."
+
+        return True, "The requested doctor and time slot are available."
+
+    finally:
+        conn.close()
+
+
+def confirm_public_request(request_id):
+    """
+    Accept a pending public request without requiring patient registration.
+    Creates a hospital appointment with patient_id = NULL.
+    Returns the new or existing appointment_id.
+    """
+    conn = _get_public_appointment_connection()
+
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+
+        request = conn.execute(
+            """
+            SELECT patient_name, phone, email, doctor_name,
+                   appointment_date, appointment_time, status,
+                   appointment_id
+            FROM public_appointment_requests
+            WHERE request_id = ?
+            """,
+            (request_id,),
+        ).fetchone()
+
+        if not request:
+            raise ValueError("Appointment request not found.")
+
+        (
+            patient_name,
+            phone,
+            email,
+            doctor,
+            date,
+            time,
+            status,
+            linked_appointment_id,
+        ) = request
+
+        if status == "Confirmed" and linked_appointment_id:
+            conn.commit()
+            return linked_appointment_id
+
+        if status != "Pending":
+            raise ValueError(
+                f"This request cannot be accepted because its status is {status}."
+            )
+
+        # Recheck availability inside the transaction to reduce race conditions.
+        existing = conn.execute(
+            """
+            SELECT appointment_id
+            FROM appointments
+            WHERE LOWER(TRIM(doctor_name)) = LOWER(TRIM(?))
+              AND TRIM(appointment_date) = TRIM(?)
+              AND TRIM(appointment_time) = TRIM(?)
+              AND LOWER(TRIM(COALESCE(status, ''))) IN
+                  ('pending', 'confirmed', 'accepted', 'booked')
+            LIMIT 1
+            """,
+            (doctor, date, time),
+        ).fetchone()
+
+        if existing:
+            raise ValueError(
+                "This doctor and time slot already has an active appointment."
+            )
+
+        # A confirmed public request for the same slot must also block booking.
+        other_request = conn.execute(
+            """
+            SELECT request_id
+            FROM public_appointment_requests
+            WHERE request_id != ?
+              AND LOWER(TRIM(doctor_name)) = LOWER(TRIM(?))
+              AND TRIM(appointment_date) = TRIM(?)
+              AND TRIM(appointment_time) = TRIM(?)
+              AND LOWER(TRIM(COALESCE(status, ''))) = 'confirmed'
+            LIMIT 1
+            """,
+            (request_id, doctor, date, time),
+        ).fetchone()
+
+        if other_request:
+            raise ValueError("This time slot is already reserved.")
+
+        # Patient is not registered yet, so patient_id is NULL.
+        cursor = conn.execute(
+            """
+            INSERT INTO appointments
+                (patient_id, doctor_name, appointment_date,
+                 appointment_time, status)
+            VALUES (NULL, ?, ?, ?, 'Confirmed')
+            """,
+            (doctor, date, time),
+        )
+
+        appointment_id = cursor.lastrowid
+
+        conn.execute(
+            """
+            UPDATE public_appointment_requests
+            SET status = 'Confirmed', appointment_id = ?
+            WHERE request_id = ?
+            """,
+            (appointment_id, request_id),
+        )
+
+        conn.commit()
+        return appointment_id
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()
+
+
+def link_confirmed_requests_to_patient(phone, patient_id):
+    """
+    Link confirmed public appointments to a patient after reception
+    registers them. Call this after add_patient() succeeds.
+    Returns the number of appointments linked.
+    """
+    conn = _get_public_appointment_connection()
+
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+
+        rows = conn.execute(
+            """
+            SELECT appointment_id
+            FROM public_appointment_requests
+            WHERE TRIM(phone) = TRIM(?)
+              AND status = 'Confirmed'
+              AND appointment_id IS NOT NULL
+            """,
+            (str(phone),),
+        ).fetchall()
+
+        linked = 0
+
+        for (appointment_id,) in rows:
+            cursor = conn.execute(
+                """
+                UPDATE appointments
+                SET patient_id = ?
+                WHERE appointment_id = ?
+                  AND patient_id IS NULL
+                """,
+                (patient_id, appointment_id),
+            )
+            linked += cursor.rowcount
+
+        conn.commit()
+        return linked
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()
